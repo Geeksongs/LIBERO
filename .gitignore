@@ -29,3 +29,4 @@ bert/
 __pycache__/
 *.pyc
 outputs/
+libero/libero/assets/
