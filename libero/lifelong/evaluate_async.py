@@ -111,7 +111,7 @@ class LiberoEnvFactory:
 
 
 def evaluate_single_episode_async(
-    sim, algo, task_emb, cfg, max_steps, init_state=None,
+    sim, algo, task_emb, cfg, max_steps, control_freq, init_state=None,
     video_writer=None, episode_idx=0, video_camera_name="frontview_image"
 ):
     """
@@ -122,7 +122,8 @@ def evaluate_single_episode_async(
         algo: Policy algorithm
         task_emb: Task embedding
         cfg: Configuration
-        max_steps: Maximum steps per episode
+        max_steps: Maximum steps per episode (used to compute horizon in seconds)
+        control_freq: Control frequency in Hz (used to compute horizon in seconds)
         init_state: Optional initial state to set
         video_writer: Optional VideoWriter for saving videos
         episode_idx: Episode index for video saving
@@ -130,6 +131,11 @@ def evaluate_single_episode_async(
 
     Returns:
         bool: Whether the episode was successful
+
+    Note:
+        The episode horizon is defined as (max_steps / control_freq) seconds of
+        simulation time, ensuring consistency with synchronous evaluation where
+        horizon is defined as the number of control steps.
     """
     # Reset the simulation
     sim.reset()
@@ -151,13 +157,13 @@ def evaluate_single_episode_async(
     # Get fresh observation after warm-up
     obs = sim.observation_stream.get(timeout=2.0)
 
-    steps = 0
+    # Compute horizon in seconds to match synchronous evaluation
+    # Sync eval: max_steps control steps = max_steps / control_freq seconds
+    horizon_seconds = max_steps / control_freq
     success = False
 
     with torch.no_grad():
-        while steps < max_steps and not sim.done():
-            steps += 1
-
+        while obs.time < horizon_seconds and not sim.done():
             # Save video frame if video_writer is provided
             if video_writer is not None and video_writer.save_video:
                 if video_camera_name in obs.data:
@@ -177,7 +183,7 @@ def evaluate_single_episode_async(
             try:
                 obs = sim.observation_stream.get(timeout=1.0)
             except TimeoutError:
-                print(f"[warning] Timeout waiting for observation at step {steps}")
+                print(f"[warning] Timeout waiting for observation at sim_time {obs.time:.2f}s")
                 break
 
             # Check success from observation
@@ -421,6 +427,7 @@ def main():
                     task_emb=task_emb,
                     cfg=cfg,
                     max_steps=cfg.eval.max_steps,
+                    control_freq=args.control_freq,
                     video_writer=video_writer,
                     episode_idx=episode,
                     video_camera_name=video_camera_name,
