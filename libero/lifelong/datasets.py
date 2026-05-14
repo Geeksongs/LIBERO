@@ -34,16 +34,34 @@ def get_dataset(
     all_obs_keys = []
     for modality_name, modality_list in obs_modality.items():
         all_obs_keys += modality_list
+
+    # Create dataset_config dict for new robomimic API
+    dataset_config = {"path": dataset_path}
+    # Default action keys for LIBERO
+    action_keys = ["actions"]
     shape_meta = FileUtils.get_shape_metadata_from_dataset(
-        dataset_path=dataset_path, all_obs_keys=all_obs_keys, verbose=False
+        dataset_config=dataset_config,
+        action_keys=action_keys,
+        all_obs_keys=all_obs_keys,
+        verbose=False
     )
 
     seq_len = seq_len
     filter_key = filter_key
+
+    # Action config for new robomimic API (no normalization by default)
+    action_config = {
+        "actions": {
+            "normalization": None
+        }
+    }
+
     dataset = SequenceDataset(
         hdf5_path=dataset_path,
         obs_keys=shape_meta["all_obs_keys"],
+        action_keys=action_keys,
         dataset_keys=["actions"],
+        action_config=action_config,
         load_next_obs=False,
         frame_stack=frame_stack,
         seq_length=seq_len,  # length-10 temporal sequences
@@ -53,7 +71,7 @@ def get_dataset(
         goal_mode=None,
         hdf5_cache_mode=hdf5_cache_mode,  # cache dataset in memory to avoid repeated file i/o
         hdf5_use_swmr=False,
-        hdf5_normalize_obs=None,
+        hdf5_normalize_obs=False,
         filter_by_attribute=filter_key,  # can optionally provide a filter key here
     )
     return dataset, shape_meta
