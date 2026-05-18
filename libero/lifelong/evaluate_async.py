@@ -40,19 +40,54 @@ from libero.libero.benchmark import get_benchmark
 from libero.libero.envs import OffScreenRenderEnv
 from libero.libero.utils.time_utils import Timer
 from libero.libero.utils.video_utils import VideoWriter
-from libero.lifelong.algos import *
-from libero.lifelong.datasets import get_dataset, GroupedTaskDataset
-from libero.lifelong.utils import (
-    safe_device,
-    torch_load_model,
-)
-from libero.lifelong.main import get_task_embs
-
-import robomimic.utils.obs_utils as ObsUtils
-import robomimic.utils.tensor_utils as TensorUtils
 
 # Import AsyncSimulation from robosuite
 from robosuite.environments.async_env import AsyncSimulation
+
+# ======================= LIBERO Native Policy Imports =======================
+# These imports are only needed for --model_type libero
+# They are lazy-loaded to avoid robomimic version compatibility issues
+LIBERO_NATIVE_AVAILABLE = False
+ObsUtils = None
+TensorUtils = None
+
+def _load_libero_native_imports():
+    """Lazy load LIBERO native policy imports."""
+    global LIBERO_NATIVE_AVAILABLE, ObsUtils, TensorUtils
+    if LIBERO_NATIVE_AVAILABLE:
+        return True
+    try:
+        from libero.lifelong.algos import *
+        from libero.lifelong.datasets import get_dataset, GroupedTaskDataset
+        from libero.lifelong.utils import safe_device, torch_load_model
+        from libero.lifelong.main import get_task_embs
+        import robomimic.utils.obs_utils as _ObsUtils
+        import robomimic.utils.tensor_utils as _TensorUtils
+        globals()['ObsUtils'] = _ObsUtils
+        globals()['TensorUtils'] = _TensorUtils
+        globals()['get_dataset'] = get_dataset
+        globals()['GroupedTaskDataset'] = GroupedTaskDataset
+        globals()['safe_device'] = safe_device
+        globals()['torch_load_model'] = torch_load_model
+        globals()['get_task_embs'] = get_task_embs
+        # Import algo classes
+        from libero.lifelong.algos.base import Sequential, get_algo_class
+        from libero.lifelong.algos.multitask import Multitask
+        from libero.lifelong.algos.er import ER
+        from libero.lifelong.algos.ewc import EWC
+        from libero.lifelong.algos.packnet import PackNet
+        globals()['Sequential'] = Sequential
+        globals()['Multitask'] = Multitask
+        globals()['ER'] = ER
+        globals()['EWC'] = EWC
+        globals()['PackNet'] = PackNet
+        globals()['SingleTask'] = Sequential  # Alias
+        LIBERO_NATIVE_AVAILABLE = True
+        return True
+    except ImportError as e:
+        print(f"[warning] LIBERO native policy imports failed: {e}")
+        print("[warning] Only LeRobot policies (--model_type lerobot) will be available")
+        return False
 
 # ======================= LeRobot Integration =======================
 # Lazy imports for LeRobot to avoid import errors if not installed
@@ -853,6 +888,13 @@ def main():
 
     # ======================= Load Policy =======================
     if args.model_type == "libero":
+        # Load LIBERO native policy imports (lazy loading)
+        if not _load_libero_native_imports():
+            print("[error] LIBERO native policy requires robomimic and other dependencies.")
+            print("[error] Please install: pip install robomimic")
+            print("[error] Or use --model_type lerobot for LeRobot policies.")
+            sys.exit(1)
+
         # Load LIBERO native policy
         experiment_dir = os.path.join(
             args.experiment_dir,
