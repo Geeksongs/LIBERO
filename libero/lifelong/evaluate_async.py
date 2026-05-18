@@ -41,8 +41,8 @@ from libero.libero.envs import OffScreenRenderEnv
 from libero.libero.utils.time_utils import Timer
 from libero.libero.utils.video_utils import VideoWriter
 
-# Import AsyncSimulation from robosuite
-from robosuite.environments.async_env import AsyncSimulation
+# Import AsyncSimulation from robosuite (use robomimic version for LIBERO compatibility)
+from robosuite.environments.async_env_robomimic import AsyncSimulation
 
 # ======================= LIBERO Native Policy Imports =======================
 # These imports are only needed for --model_type libero
