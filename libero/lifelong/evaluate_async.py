@@ -801,13 +801,22 @@ def parse_args():
 
     # === CSV output settings ===
     parser.add_argument("--csv_path", type=str, default=None,
-                        help="Path to CSV file for results (default: auto-generate in save_dir)")
+                        help="Path to CSV file for results (default: auto-generate in output_dir)")
+
+    # === Output directory ===
+    parser.add_argument("--output_dir", type=str, default=None,
+                        help="Output directory for all results (CSV, videos, stats). Default: experiments_saved/")
 
     args = parser.parse_args()
 
     # Process device
     args.device_id = "cuda:" + str(args.device_id) if args.device_id is not None else "cuda:0"
-    args.save_dir = f"{args.experiment_dir}_saved"
+
+    # Set output directory
+    if args.output_dir is not None:
+        args.save_dir = args.output_dir
+    else:
+        args.save_dir = f"{args.experiment_dir}_saved"
 
     # Validate LIBERO-specific arguments
     if args.model_type == "libero":
